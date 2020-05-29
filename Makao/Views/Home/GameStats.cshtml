@@ -1,0 +1,224 @@
+﻿@model IEnumerable<Makao.Models.GameStatsModel>
+
+@{
+    ViewBag.Title = "GameStats";
+}
+
+<h2 style="text-align:center">GameStats</h2>
+
+<div class="row">
+    <div class="col-xs-12">
+        <table class="table table-striped table-bordered">
+
+            <tr>
+                @foreach (var item in Model)
+                {
+                    <td style="text-align:center">
+                        @Html.DisplayFor(modelItem => item.PlayerName)
+                    </td>
+                }
+
+            </tr>
+            <tr>
+                @foreach (var item in Model)
+                {
+                    <td style="text-align:center">
+                        <strong id="@item.PlayerId">@Html.DisplayFor(modelItem => item.Scores)</strong>
+                    </td>
+                }
+            </tr>
+
+            <tr>
+                @foreach (var item in Model)
+                {
+                    <td style="text-align:center">
+                        <button onclick="EditModal('@Json.Encode(item.PlayerId)')">Edit</button>
+                    </td>
+                }
+            </tr>
+        </table>
+    </div>
+    <div class="col-xs-8"><span style="float:left">Divider:<strong id="Divider">@ViewBag.Divider</strong></span></div>
+    <div class="col-xs-4"><button onclick="EndRoundModalTriger()" style="float:right">End Round</button></div>
+</div>
+
+<div class="modal fade" id="EditModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title"> Enter Score</h4>
+            </div>
+            <input type="hidden" id="PlayerId" />
+            <div class="modal-body form-horizontal">
+                <div class="row" style="text-align:center">
+                    <div class="col-xs-12" style="text-align:center">
+                        <strong style="font-size:19px" id="PlayerName"></strong>
+                    </div>
+                    <div class="col-xs-12" style="text-align:center;margin-top:3%">
+                        <input type="number" id="PlayerScore" />
+                    </div>
+                    <div class="col-xs-12" style="text-align:right;margin-top:3%">
+                        <button style="float:right" onclick="SetWinnerScore()">Winner</button>
+                        <button style="float:right" onclick="SetDoubleScore()">Double</button>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="SubmitScore()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="modal fade" id="EndRoundModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>>
+            <div class="modal-body form-horizontal">
+                <div class="row" style="text-align:center">
+                    <div class="col-xs-12" style="text-align:center">
+                        <strong style="font-size:23px">Are you sure?</strong>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="EndRound()">Yes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    var hub = $.connection.makaoHub;
+    var Cycle= parseInt('@ViewBag.Cycle');
+     $(function () {  
+            var  hub= $.connection.makaoHub;
+            hub.client.updateScore = function (playerId,score) {
+               $('#' + playerId).html(score);
+         };
+          hub.client.updateDivider = function (divider,cycle) {
+              $("#Divider").html(divider);
+              Cycle = cycle;
+            };
+            // Start the connection.
+            $.connection.hub.start().done(function () {
+
+                });
+            });
+
+    var obj = @Html.Raw(Json.Encode(Model));
+
+    var EditModal = function (PlayerId) {
+        var row = obj.filter(x => x.PlayerId == PlayerId);
+        $("#PlayerScore").val('');
+        $("#PlayerId").val(PlayerId);
+        $("#PlayerName").html(row[0].PlayerName);
+
+          setTimeout(function (){
+       $("#PlayerScore").focus();
+          }, 500);
+
+        $("#EditModal").modal("show");
+       // $("#PlayerScore").click();
+      }
+
+
+       var EndRoundModalTriger = function () {
+
+        $("#EndRoundModal").modal("show");
+       // $("#PlayerScore").click();
+    }
+
+
+    var SetWinnerScore = function () {
+        var score =$("#PlayerScore").val();
+        if (score == undefined && score == null || score == '') {
+            score = 0;
+        }
+        score = score - 10;
+        $("#PlayerScore").val(score);
+    }
+
+
+     var SetDoubleScore = function () {
+        var score =$("#PlayerScore").val();
+        if (score == undefined && score == null || score == '') {
+            score = 0;
+        }
+        score = score*2;
+        $("#PlayerScore").val(score);
+    }
+
+
+
+    var SubmitScore = function () {
+        var GameId = '@ViewBag.GameId';
+        var PlayerScore=parseInt($("#PlayerScore").val());
+        var PlayerId = $("#PlayerId").val();
+
+          $.ajax({
+                url: '@Url.Action("SubmitScore", "Home")',
+                type: 'POST',
+                   dataType: 'json',
+              data: {
+                  GameId: GameId,
+                  PlayerScore: PlayerScore,
+                  PlayerId: PlayerId,
+                  Cycle:Cycle
+
+                   },
+                   success: function (succesData) {
+                       if (succesData.Status == "OK") {
+                           var score =parseInt($('#' + PlayerId).html());
+                           if (score == undefined && score == null || score == '') {
+                                score = 0;
+                           }
+                           score = score + PlayerScore;
+                           $('#' + PlayerId).html(score);
+                            hub.server.updateScore(PlayerId, score);
+                           $("#EditModal").modal("hide");
+
+                       }
+
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    alert("Error");
+                }
+            });
+    }
+
+    var EndRound = function () {
+            var GameId = '@ViewBag.GameId';
+           $.ajax({
+                url: '@Url.Action("EndRound", "Home")',
+                type: 'POST',
+                   dataType: 'json',
+               data: {
+                   GameId: GameId,
+                   },
+                   success: function (succesData) {
+                       if (succesData.Status == "OK") {
+                           $("#Divider").html(succesData.Data);
+                           Cycle = Cycle + 1;
+                            hub.server.updateDivider(succesData.Data,Cycle);
+                           $("#EndRoundModal").modal("hide");
+                           }
+
+                       },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    alert("Error");
+                }
+            });
+    }
+</script>
